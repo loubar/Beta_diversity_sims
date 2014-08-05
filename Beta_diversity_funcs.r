@@ -99,7 +99,7 @@ add_comp_change <- function(Comm1, p, gradient){ # a function to generate 3 asse
   Comm2 <- Comm
   #Randomly select a proportion, p, of species (by rank).  
   to.change <- sample(1:length(Comm), p * length(Comm))
-  #Reassign the identity of these species. (e.g. give new rank id not present in community 1, a “new” species that is absent in community 1) 
+  #Reassign the identity of these species. (e.g. give new rank id not present in community 1, a â€œnewâ€ species that is absent in community 1) 
   #set the abundance of these selected species to zero
   Comm2[to.change] <- 0
   #append the abundances of these 'new' species
@@ -167,7 +167,7 @@ random_composition_change <- function(Comm1, p){
 	Comm2 <- Comm1
   #Randomly select a proportion, p, of species (by rank).  
 	to.change <- sample(1:length(Comm1), p * length(Comm1))		
-	#Reassign the identity of these species. (e.g. give new rank id not present in community 1, a “new” species that is absent in community 1) 
+	#Reassign the identity of these species. (e.g. give new rank id not present in community 1, a â€œnewâ€ species that is absent in community 1) 
 	#set the abundance of these selected species to zero
 	Comm2[to.change] <- 0
 	#append the abundances of these 'new' species
@@ -305,7 +305,7 @@ rare_composition_change <- function(Comm1, p){
   # this is consistent with empirical interspecific occupancy-abundance relationships in the literature.
   #select a proportion, p, of species (by rank).  
   to.change <- sample(1:length(Comm), p * length(Comm), prob=probs)   
-  #Reassign the identity of these species. (e.g. give new rank id not present in community 1, a “new” species that is absent in community 1) 
+  #Reassign the identity of these species. (e.g. give new rank id not present in community 1, a â€œnewâ€ species that is absent in community 1) 
   #set the abundance of these selected species to zero
   Comm2[to.change] <- 0
   #append the abundances of these 'new' species
