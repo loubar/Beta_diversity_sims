@@ -1,8 +1,9 @@
 # Measuring taxonomic beta-diversity with abundance data
 
 # Louise Barwell and Nick Isaac 
-# 24/10/2011 to 08/05/2014
+# 24/10/2011 to present
 # Simulations to explore and score the properties and personalities of 25 beta-diversity metrics:
+# Warning: on my computer, the entire script takes around 5 days to run 
 
 ######## Eleven desirable properties for all abundance-based metrics 
 
@@ -32,33 +33,34 @@
 
 # ! denotes simulations that are not scored as part of the analaysis.
 
-# set the working directory, where the outputs will be saved
-setwd("C:/Users/loubar/Dropbox/NEC04455_STU_LouiseBarwell/Beta diversity MRes code/Final analyses/Beta_diversity_code")
-
-# create folders to organise the results by simulation
-for (i in 1:11){
-  dir.create(path=paste("D", i, sep=""))
-}
-
-for (i in 1:9){
-  dir.create(path=paste("P", i, sep=""))
-}
-
-source('Beta diversity funcs 120705.r') # the functions needed to estimate beta-diversity using all 25 metrics
-load("metrics.rData") # a vector with names of each of the 25 metrics and their unique ID
-
 library(ggplot2) 
 library(reshape2) 
+library(RCurl)
+
+# source the functions in the file beta_diversity_funcs.r on github (https://github.com/loubar/Beta_diversity_sims/blob/master/Beta_diversity_funcs.r)
+# these are functions to calculate the beta-diversity metrics and to simulate assemblage pairs under different scenarios
+u <- "https://raw.githubusercontent.com/loubar/Beta_diversity_sims/master/Beta_diversity_funcs.r"
+script <- getURL(u, ssl.verifypeer = FALSE)
+eval(parse(text = script))
+
+
+# give each metric an index
+# 1:8 have no upper limit and will need to be plotted separately
+metrics <- c(14,16,15,23, 20,17,18,1, 3, 4,6,5, 19,21,2,11,10, 9,12,13,22,24,25,7,8)
+names(metrics)<- c('Jaccard abd.','Canberra','Bray-Curtis','Gower', 'Kulczynski','Morisita','Morisita-Horn','Euclidean', 'Manhattan', 'alt. Gower','Binomial', 'CYd','Horn','Renkonen','Av. Euclidean','Classic Jaccard', 'Classic Sorensen', 'sim','Chao Sorensen','Chao Jaccard', 'NESS','Jost Shannon','Jost Simpson','Lande Shannon', 'Lande Simpson')  
+
+
 
 # generate 100 Fisher log series rank abundance distributions with ~10000 individuals and 100 species
-# To average out the variation, use the average of 100 replicates. 
+# Use the average of 100 replicates.
+# Comm1 is the starting assemblage in all of the following simulations
 assemblages<-replicate(100, FisherRAD(N=10000, S=100))
-
-# Comm1 is the focal assemblage used as the starting point in the following simulations
 Comm1<-round(rowMeans(assemblages), 0) #  Fisherian starting assemblage with ~ 10000 individuals and 100 species
-save(Comm1, file="Comm1.rData")
+
 
 ######################################################################################################################################
+# Simulations to test for each of the properties described above.
+# Each metric is given a score to quantify how well it satisfies each property.
 
 ##################### D1) unbiased by sample size ######################################################################################
 
@@ -91,22 +93,18 @@ D1_sim<-do.call(rbind, by.N)
 
 
 
-# score the performance 
-# 
+# score the performance  
 x<-acast(D1_sim, sp_turnover ~ p_sample ~ ID, value.var="Beta")
 D1_score<-sapply(1:25, function(i) mean(abs(x[,,i]-x[,16,i])/(max(x[,,i])-min(x[,,i]))))
 names(D1_score)<-names(sort(metrics))
-save(D1_score, file="D1/D1_score.rData")
 
 # add the scores into the data
 for (i in 1:length(D1_score)){
   D1_sim[D1_sim$Metric==names(D1_score)[i],"D1_score"]<-paste(names(D1_score)[i], "\nD1 =", round(D1_score[i],4))
 }
 D1_sim$D1_score<-factor(D1_sim$D1_score, levels=sapply(1:length(sort(D1_score)), function(i) paste(names(sort(D1_score))[i], "\nD1 =", round(sort(D1_score)[i],4))))
-save(D1_sim, file="D1/D1_sim.rData")
 
 # plot the response to undersampling both assemblages
-
 a<-ggplot(D1_sim[D1_sim$ID>8,],aes(x=p_sample,y=Beta, ymin=lower, ymax=upper, group=factor(sp_turnover), colour=factor(sp_turnover), fill=factor(sp_turnover))) 
 b<-a+geom_line(size=0.5)+geom_ribbon(colour=NA,alpha=0.5)+facet_wrap(~D1_score, scales="fixed", nrow=6, ncol=3)+scale_y_continuous(limits=c(-0.1, 1.1), breaks=((0:5)*2/10))+scale_x_reverse(limits=c(1, 0))
 c<-b+ theme_bw()+theme(panel.grid.major = element_line(colour ="white"), panel.grid.minor = element_line(colour ="white"))
@@ -115,7 +113,7 @@ f<-d+ylab (expression(beta))+xlab("Proportion of individuals sampled")+theme(leg
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=max(D1_sim$p_sample), colour="black", linetype=2)
 j<-h+ggtitle("a)")+theme(plot.title=element_text(hjust=0))+theme(axis.title.y=element_text(angle=0))
-ggsave("D1/D1_st.png", height=8, width=6, dpi=500, pointsize=10)
+j
 
 a<-ggplot(D1_sim[D1_sim$ID<=8,],aes(x=p_sample,y=Beta, ymin=lower, ymax=upper, group=factor(sp_turnover), colour=factor(sp_turnover), fill=factor(sp_turnover))) 
 b<-a+geom_line(size=0.5)+geom_ribbon(colour=NA,alpha=0.5)+facet_wrap(~D1_score, scales="free_y", nrow=3, ncol=3)+scale_x_reverse(limits=c(1, 0))
@@ -125,7 +123,7 @@ f<-d+ylab (expression(beta))+xlab("Proportion of individuals sampled")+labs(fill
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=max(D1_sim$p_sample), colour="black", linetype=2)+theme(strip.text=element_text(size=8))
 j<-h+ggtitle("b)")+theme(plot.title=element_text(hjust=0))+theme(axis.title.y=element_text(angle=0))
-ggsave("D1/D1_unst.png", height=8/2, width=6, dpi=500, pointsize=10)
+j
 ###########################################################################################################################################################################################################################
 
 ##################### D2) unbiased by unequal sample size ##################################################################################################################################################################
@@ -153,20 +151,18 @@ for (j in 1:length(turnover)){
   by.N[[j]]<-a
 }
 D2_sims<-do.call(rbind, by.N)
-save(D2_sims, file="D2/D2_sims.rData")
 
 # score the performance 
 x<-acast(D2_sims, p.turnover ~ N.sample ~ ID, value.var="Beta")
 D2_score<-sapply(1:25, function(i) mean(abs(x[,,i]-x[,16,i])/(max(x[,,i])-min(x[,,i]))))
 names(D2_score)<-names(sort(metrics))
-save(D2_score, file="D2/D2_score.rData")
 
 # add the scores into the data
 for (i in 1:length(D2_score)){
   D2_sims[D2_sims$Metric==names(D2_score)[i],"D2_score"]<-paste(names(D2_score)[i], "\nD2 =", round(D2_score[i],4))
 }
 D2_sims$D2_score<-factor(D2_sims$D2_score, levels=sapply(1:length(sort(D2_score)), function(i) paste(names(sort(D2_score))[i], "\nD2 =", round(sort(D2_score)[i],4))))
-save(D2_sims, file="D2/D2_sims.rData")
+
 
 #  plot the response to undersampling one assemblage
 
@@ -180,7 +176,7 @@ f<-e+ylab (expression(beta))+xlab("Sample size difference")+theme(legend.positio
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=0, colour="black", linetype=2)
 j<-h+ggtitle("a)")+theme(plot.title=element_text(hjust=0))+theme(axis.title.y=element_text(angle=0))
-ggsave("D2/D2_st.png", height=8, width=6, dpi=500, pointsize=10)
+j
 
 
 a<-ggplot(D2_sims[D2_sims$ID<=8,],aes(x=Difference,y=Beta, group=factor(p.turnover), colour=factor(p.turnover), fill=factor(p.turnover), ymin=lower,ymax=upper)) 
@@ -192,7 +188,7 @@ f<-e+ylab (expression(beta))+xlab ("Sample size difference")+labs(fill="Species 
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=0, colour="black", linetype=2)
 j<-h+ggtitle("b)")+theme(plot.title=element_text(hjust=0))+theme(axis.title.y=element_text(angle=0))
-ggsave("D2/D2_unst.png", height=8/2, width=6, dpi=500, pointsize=10)
+j
 
 #############################################################################################################################################################################################################
 
@@ -228,7 +224,7 @@ for (i in 1:length(S)){
   }
   alphas[[i]]<-round(rowMeans(Spp), 0)
 }  
-save(alphas, file="D3/alphas.rData")
+
 
 
 by.alpha<-list() # each element in the list is for a different alpha.  Each is a data frame containing the names of the metrics in column 1, the value of alpha in col 2 and the value of beta for multiple levels of turnover
@@ -257,14 +253,14 @@ D3_sim<-do.call(rbind, by.alpha)
 x<-acast(D3_sim, p.turnover ~ Alpha ~ ID, value.var='Beta')
 D3_score<-sapply(1:25, function(i) mean(abs(x[,10,i]-x[,,i])/(max(x[,,i])-min(x[,,i]))))
 names(D3_score)<-names(sort(metrics))
-save(D3_score, file="D3/D3_score.rData")
+
 
 # add the scores in to the D3_sim data.frame
 for (i in 1:length(D3_score)){
   D3_sim[D3_sim$Metric==names(D3_score)[i],"D3_score"]<-paste(names(D3_score)[i], "\nD3 =", round(D3_score[i],4))
 }
 D3_sim$D3_score<-factor(D3_sim$D3_score, levels=sapply(1:length(sort(D3_score)), function(i) paste(names(sort(D3_score))[i], "\nD3 =", round(sort(D3_score)[i],4))))
-save(D3_sim, file="D3/D3_sim.rData")
+
 
 ##### Plot the response to equal alpha-diversity in assemblage pairs 
 
@@ -278,7 +274,7 @@ f<-e+ylab (expression(beta))+xlab (expression(alpha[Fisher]))+theme(legend.posit
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=max(D3_sim$Alpha), linetype=2, colour="black")
 j<-h+ggtitle("a)")+theme(plot.title=element_text(hjust=0))+theme(axis.title.y=element_text(angle=0))
-ggsave("D3/D3_st.png",height=8,width=6,dpi=500, pointsize=9)
+j
 
 a<-ggplot(D3_sim[D3_sim$ID<=8,],aes(x=Alpha,y=Beta, group=factor(p.turnover), colour=factor(p.turnover), fill=factor(p.turnover), ymin=lower,ymax=upper)) 
 b<-a+geom_line(size=0.5)+geom_ribbon(colour=NA, alpha=0.5)+facet_wrap(~D3_score, scales="free_y", nrow=3, ncol=3)+scale_x_continuous(limits=c(0, 60), breaks=(0:6)*10)
@@ -289,7 +285,7 @@ f<-e+ylab (expression(beta))+xlab (expression(alpha[Fisher]))+labs(fill="Species
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")+theme(axis.title.y=element_text(angle=0))
 h<-g+geom_vline(xintercept=max(D3_sim$Alpha), linetype=2, colour="black")
 j<-h+ggtitle("b)")+theme(plot.title=element_text(hjust=0))+theme(strip.text=element_text(size=8))
-ggsave("D3/D3_unst.png",height=8/2,width=6,dpi=500, pointsize=9)
+j
 #################################################################################################################################################################################################################################################################
 
 
@@ -337,19 +333,15 @@ summary_add<-aggregate(diff~Metric+ID+gr+P.turnover, data=D4_sim, FUN=qn)
 D4_summary<-data.frame(summary_add[,1:4], LQ=summary_add$diff[,'25%'], median=summary_add$diff[,'50%'], UQ=summary_add$diff[,'75%'] )
 
 D4_score<-sapply(1:25, function(i) mean(abs(D4_sim[D4_sim$ID==i & D4_sim$gr>1, 'diff'])))
-#D4_score<-sapply(1:25, function(i) mean(abs(D4_summary[D4_summary$ID==i, "median"])))
 names(D4_score)<-names(sort(metrics))
-sort(D4_score)
+
 # add the scores in to the data.frame D4_summary
 for (i in 1:length(D4_score)){
   D4_summary[D4_summary$Metric==names(D4_score)[i],"D4_score"]<-paste(names(D4_score)[i], "\nD4 =", round(D4_score[i], 4)) 
 }
 D4_summary$D4_score<-factor(D4_summary$D4_score, levels=sapply(1:length(sort(D4_score)), function(i) paste(names(sort(D4_score))[i], "\nD4 =", round(sort(D4_score)[i], 4))))
-save(D4_summary, file="D4/D4_summary.rData")
-save(D4_sim, file="D4/D4_sim.rData")
-save(D4_score, file="D4/D4_score.rData")
-#plot the difference between added beta (B_12+B23)  and observed beta (B_13)
 
+#plot the difference between added beta (B_12+B23)  and observed beta (B_13)
 a<-ggplot(D4_summary[D4_summary$ID>8,],aes(x=gr,y=median, ymin=LQ, ymax=UQ, group=factor(P.turnover), fill=factor(P.turnover), colour=factor(P.turnover)))
 b<-a+geom_line(size=0.5)+geom_ribbon(colour=NA,alpha=0.5)+facet_wrap(~D4_score, nrow=6, ncol=3)+scale_x_log10(breaks=c(1,10,100,1000))+geom_hline(yintercept=0, linetype=2)+scale_y_continuous(limits=c(-0.4, 1), breaks=-2:5*2/10)
 c<-b+ theme_bw()+theme(panel.grid.major = element_line(colour ="white"), panel.grid.minor = element_line(colour ="white"))
@@ -358,7 +350,7 @@ e<-d+theme(axis.title.x = element_text(size = 8, colour = 'black'))+theme(axis.t
 f<-e+ylab (expression((beta["1,2"]+beta["2,3"])-beta["1,3"]))+xlab ("gradient")+theme(legend.position="none")
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+ggtitle("a)")+theme(plot.title=element_text(hjust=0))+theme(axis.title.y=element_text(angle=0))
-ggsave("D4/D4_st.png",height=8,width=6,dpi=500, pointsize=9)
+h
 
 a<-ggplot(D4_summary[D4_summary$ID<=8,],aes(x=gr,y=median, ymin=LQ, ymax=UQ, group=factor(P.turnover), fill=factor(P.turnover), colour=factor(P.turnover)))
 b<-a+geom_line(size=0.5)+geom_ribbon(colour=NA,alpha=0.5)+facet_wrap(~D4_score, nrow=3, ncol=3)+scale_x_log10(breaks=c(1,10,100,1000))+geom_hline(yintercept=0, linetype=2)+scale_y_continuous(limits=c(-0.4, 1),breaks=-2:5*2/10)
@@ -368,9 +360,7 @@ e<-d+theme(axis.title.x = element_text(size = 8, colour = 'black'))+theme(axis.t
 f<-e+ylab (expression((beta["1,2"]+beta["2,3"])-beta["1,3"]))+xlab ("gradient")+theme(legend.position="none")
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+ggtitle("a)")+theme(plot.title=element_text(hjust=0))+theme(axis.title.y=element_text(angle=0))+theme(strip.text=element_text(size=8))
-ggsave("D4/D4_unst.png",height=8/2,width=6,dpi=500, pointsize=9)
-
-
+h
 ###########################################################################################################################################################################################
 
 
@@ -397,7 +387,7 @@ for (i in 1:length(turnover)){
 
 D5_sim<-do.call(rbind, mult)
 # It is not possible to test whether similarity is multiplicative for unstandardised indices: they do not have a similraity complement
-# so remove the unstandardised metrics from the data set
+# so the unstandardised metrics are removed from the data set (this counts as a fail for this property)
 D5_sim<-D5_sim[D5_sim$ID>8,]
 
 for (i in 9:25){
@@ -410,7 +400,6 @@ D5_sim$diff<-(D5_sim$Sim.mult-D5_sim$Sim1_3)/D5_sim$range # difference standardi
 qn<-function(x){
   quantile(x, probs=c(0.25, 0.5, 0.75))
 }
-
 summary_mult<-aggregate(diff~Metric+ID+P.turnover, data=D5_sim, FUN=qn)
 D5_summary<-data.frame(summary_mult[,1:3], LQ=summary_mult$diff[,'25%'], median=summary_mult$diff[,'50%'], UQ=summary_mult$diff[,'75%'] )
 
@@ -424,23 +413,15 @@ for (i in 9:25){
   D5_summary[D5_summary$Metric==names(D5_score)[i],"D5_score"]<-paste(names(D5_score)[i], "\nD5 =", round(D5_score[i], 4)) 
 }
 D5_summary$D5_score<-factor(D5_summary$D5_score, levels=sapply(1:length(sort(D5_score)), function(i) paste(names(sort(D5_score))[i], "\nD5 =", round(sort(D5_score)[i], 4))))
-save(D5_summary, file="D5/D5_summary.rData")
-save(D5_sim, file="D5/D5_sim.rData")
-save(D5_score, file="D5/D5_score.rData")
-
 
 # plot the difference between the value of beta expected under multiplicative behaviour and the observed beta
-
-
-
 a<-ggplot(D5_summary,aes(x=P.turnover,y=median, ymin=LQ, ymax=UQ))
 b<-a+geom_line(size=0.5)+geom_ribbon(colour=NA,alpha=0.5)+facet_wrap(~D5_score,scales="fixed", nrow=6, ncol=3)
 c<-b+ theme_bw()+theme(panel.grid.major = element_line(colour ="white"), panel.grid.minor = element_line(colour ="white"))+geom_hline(linetype=2, yintercept=0)
 d<-c+theme(axis.text.x=element_text(angle=0, hjust=1, size=6))+theme(axis.text.y=element_text(size=6))
 e<-d+theme(axis.title.x = element_text(size = 12, colour = 'black'))+theme(axis.title.y = element_text(angle=0,size = 12, colour = 'black'))
 f<-e+ylab (expression((1-beta["1,2"])(1-beta["2,3"])-(1-beta["1,3"])))+xlab ("Proportion turnover")
-ggsave("D5/D5_st.png",height=8,width=6,dpi=500, pointsize=10)
-
+f
 
 ##########################################################################################################################################################################################
 
@@ -469,17 +450,14 @@ for(j in 1:length(p)){
   n.and.t[[j]]<-nestedness
 }
 D6_sim<-do.call(rbind, n.and.t)
-save(D6_sim, file="D6/D6_sim.rData")
 
 # Score the performance
-
 x<-acast(D6_sim, sp_turnover ~ sp_loss ~ ID, value.var="Beta")
 # desirable property D6 monotonic increase with species turnover (strictly increasing: if turnover1,2 > turnover3,4, then beta1,2 > beta3,4) 
 # score: TRUE / FALSE
 D6_score<-sapply(1:25, function(i) all(sapply(1:dim(x)[2], function(j) rank(x[,j,i])==1:length(p))))
 D6_score<-as.character(D6_score)
 names(D6_score)<-names(sort(metrics))
-save(D6_score, file="D6/D6_score.rData")
 
 # add the scores in to the data.frame D4_summary
 for (i in 1:length(D6_score)){
@@ -516,15 +494,12 @@ for (k in 1:length(turnover)){
   partial.r[[k]]<-allr2
 }
 D7_sim<-do.call(rbind, partial.r)
-save(D7_sim, file="D7/D7_sim.rData")
-# Score the performances
 
-# desirable vii) monotonic increase with decoupling of species ranks
-# score: TRUE/FALSE
+
+# Score the performances (TRUE/FALSE)
 x<-acast(D7_sim, p.turnover ~ partial.cor ~ ID, value.var="Beta")
 D7_score<-as.character(sapply(1:25, function(i) all(sapply(1:4, function(j) order(x[j,,i])==length(r):1))))
 names(D7_score)<-names(sort(metrics))
-save(D7_score, file="D7/D7_score.rData")
 
 for (i in 1:length(D7_score)){
   D7_sim[D7_sim$Metric==names(D7_score)[i],"D7_score"]<-paste("D7 =", D7_score[i]) 
@@ -554,7 +529,7 @@ for (i in 1:length(even)){ # obtain the mean evenness difference across 10000 si
   comms<-replicate(10000, evenness(Comm1, turnover=0, even=even[[i]]), simplify=F)
   ed[i]<-mean(sapply(1:length(comms), function(j) abs(diversity(comms[[j]][1,], index="shannon")/log(length(Comm1))-diversity(comms[[j]][2,], index="shannon")/log(length(Comm1)))))
 }
-save(ed, file="D8/ed.rData")
+
 
 Evenness<-list()
 
@@ -577,7 +552,6 @@ for (j in 1:length(turnover)){
 }
 
 D8_sim<-do.call(rbind, Evenness) 
-save(D8_sim, file="D8/D8_sim.rData")
 # score the performances
 
 
@@ -585,7 +559,6 @@ save(D8_sim, file="D8/D8_sim.rData")
 x<-acast(D8_sim, sp_turnover ~ Even_diff ~ ID, value.var="Beta")
 D8_score<-as.character(sapply(1:25, function(i) all(sapply(1:5, function(j) (rank(x[j,,i])==1:length(even))))))
 names(D8_score)<-names(sort(metrics))
-save(D8_score, file="D8/D8_score.rData")
 
 for (i in 1:length(D8_score)){
   D8_sim[D8_sim$Metric==names(D8_score)[i],"D8_score"]<-paste("D8 =", D8_score[i]) 
@@ -603,7 +576,6 @@ for (i in 1:length(D8_score)){
 x<-acast(D7_sim, p.turnover ~ partial.cor ~ ID, value.var="Beta")
 D9_score<-as.character(sapply(1:25, function(i) x[1,1,i]<x[6,length(r),i]))
 names(D9_score)<-names(sort(metrics))
-save(D9_score, file="D9/D9_score.rData")
 
 # add scores into D7_sim data frame
 for (i in 1:length(D9_score)){
@@ -621,7 +593,7 @@ f<-e+ylab (expression(beta))+xlab ("partial correlation")+theme(legend.position=
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=1, linetype=2)
 j<-h+ggtitle("a)")+theme(plot.title=element_text(hjust=0))
-ggsave("D7/D7_st.png",height=8,width=6,dpi=500, pointsize=10)
+j
 
 
 a<-ggplot(D7_sim[D7_sim$ID<=8,],aes(x=partial.cor,y=Beta,ymin=lower,ymax=upper, group=factor(p.turnover), fill=factor(p.turnover), colour=factor(p.turnover)))
@@ -633,7 +605,7 @@ f<-e+ylab (expression(beta))+xlab ("partial correlation")+labs(fill="Species tur
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=1, linetype=2)
 j<-h+ggtitle("b)")+theme(plot.title=element_text(hjust=0))+theme(strip.text=element_text(size=8))
-ggsave("D7/D7_unst.png",height=8/2,width=6,dpi=500, pointsize=10)
+j
 
 
 ######################################################################################################################################################################################
@@ -648,7 +620,7 @@ ggsave("D7/D7_unst.png",height=8/2,width=6,dpi=500, pointsize=10)
 x<-acast(D8_sim, sp_turnover ~ Even_diff ~ ID, value.var="Beta")
 D10_score<-as.character(sapply(1:25, function(i) x[1,length(even),i]<x[6,1,i]))                                                                         
 names(D10_score)<-names(sort(metrics))
-save(D10_score, file="D10/D10_score.rData")
+
 
 # add the scores into the D8_sim data frame
 
@@ -667,7 +639,6 @@ for (i in 1:length(D10_score)){
 # see Table 1
 D11_score<-as.character(as.logical(c(rep(0, 8), rep(1, 17))))
 names(D11_score)<-names(sort(metrics))
-save(D11_score, file="D11/D11_score.rData")
 ##############################################################################################################################################################
 
 
@@ -679,7 +650,7 @@ x<-acast(D6_sim, sp_turnover~sp_loss~ID, value.var="Beta")
 
 P1_score <- sapply(1:25, function(i) mean(sapply(1:dim(x)[2], function(j) summary(lm(x[,j,i]~poly(as.numeric(rownames(x)), 2, raw=T)))$coefficients[3,4])))
 names(P1_score)<-names(sort(metrics))
-save(P1_score, file='P1/P1_score.rData')
+
 
 # add the scores to D6_sim data frame
 for (i in 1:length(P1_score)){
@@ -722,14 +693,13 @@ P2_sim<-do.call(rbind, diff_alpha)
 y<-acast(P2_sim, p.turnover ~ Alpha_D ~ ID, value.var='Beta')
 P2_score<-sapply(1:25, function(i) mean(abs(y[,1,i]-y[,,i])/(max(y[,,i])-min(y[,,i]))))
 names(P2_score)<-names(sort(metrics))
-save(P2_score, file="P2/P2_score.rData")
+
 
 # add the scores into the data.frame P2_sim
 for (i in 1:length(P2_score)){
   P2_sim[P2_sim$Metric==names(P2_score)[i],"P2_score"]<-paste(names(P2_score)[i], "\nP2 =", round(P2_score[i],4))
 }
 P2_sim$P2_score<-factor(P2_sim$P2_score, levels=sapply(1:length(sort(P2_score)), function(i) paste(names(sort(P2_score))[i], "\nP2 =", round(sort(P2_score)[i],4))))
-save(P2_sim, file="P2/P2_sim.rData")
 
 # plot the responses to differences in alpha-diversity
 
@@ -742,7 +712,7 @@ f<-e+ylab (expression(beta))+xlab (expression(paste("Difference in ", alpha[Fish
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=min(P2_sim$Alpha_D), linetype=2, colour="black")
 j<-h+ggtitle("a)")+theme(plot.title=element_text(hjust=0))
-ggsave("P2/P2_st.png",height=8,width=6,dpi=500, pointsize=9)
+j
 
 a<-ggplot(P2_sim[P2_sim$ID<=8,],aes(x=Alpha_D,y=Beta, group=factor(p.turnover), colour=factor(p.turnover), fill=factor(p.turnover), ymin=lower,ymax=upper)) 
 b<-a+geom_line(size=0.5)+geom_ribbon(colour=NA, alpha=0.5)+facet_wrap(~P2_score, scales="free_y", nrow=3, ncol=3)+scale_x_continuous(limits=c(0, 60), breaks=(0:6)*10)
@@ -753,7 +723,7 @@ f<-e+ylab (expression(beta))+xlab (expression(paste("Difference in ", alpha[Fish
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=min(P2_sim$Alpha_D), linetype=2, colour="black")
 j<-h+ggtitle("b)")+theme(plot.title=element_text(hjust=0))+theme(strip.text=element_text(size=8))
-ggsave("P2/P2_unst.png",height=8/2,width=6,dpi=500, pointsize=9)
+j
 ############################################################################################################################################################################################################################################################
 
 
@@ -769,7 +739,6 @@ ggsave("P2/P2_unst.png",height=8/2,width=6,dpi=500, pointsize=9)
 x<-acast(D6_sim, sp_turnover ~ sp_loss ~ ID, value.var="Beta")
 P3_score<-sapply(1:25, function(i) x[1,10,i]/x[6,1,i])
 names(P3_score)<-names(sort(metrics))
-save(P3_score, file="P3/P3_score.rData")
 
 # add the scores to the D6_sim data frame
 for (i in 1:length(P3_score)){
@@ -788,7 +757,7 @@ f<-e+ylab (expression(beta))+xlab ("Proportion species turnover")+theme(legend.p
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 #h<-g+geom_vline(xintercept=0, linetype=2)
 j<-g+ggtitle("a)")+theme(plot.title=element_text(hjust=0))
-ggsave("D6/D6_st.png", height=8, width=6, dpi=500, pointsize=10)
+j
 
 #unstandardised metrics
 #x11()
@@ -801,7 +770,7 @@ f<-e+ylab (expression(beta))+xlab ('Proportion species turnover')+labs(colour="S
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 #h<-g+geom_vline(xintercept=0, linetype=2)
 j<-g+ggtitle("b)")+theme(plot.title=element_text(hjust=0))+theme(strip.text=element_text(size=8))
-ggsave("D6/D6_unst.png", height=8/2, width=6, dpi=500, pointsize=10)
+j
 
 
 
@@ -819,7 +788,6 @@ ggsave("D6/D6_unst.png", height=8/2, width=6, dpi=500, pointsize=10)
 x<-acast(D7_sim, p.turnover ~ partial.cor ~ ID, value.var="Beta")
 P4_score<-sapply(1:25, function(i) x[1,1,i]/x[6,length(r),i])
 names(P4_score)<-names(sort(metrics))
-save(P4_score, file="P4/P4_score.rData")
 
 # add the scores into the data.frame D7_sim
 for (i in 1:length(P4_score)){
@@ -837,8 +805,7 @@ f<-e+ylab (expression(beta))+xlab ("partial correlation")+theme(legend.position=
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 #h<-g+geom_vline(xintercept=1, linetype=2)
 j<-g+ggtitle("a)")+theme(plot.title=element_text(hjust=0))
-ggsave("D7/D7_st.png",height=8,width=6,dpi=500, pointsize=10)
-
+j
 
 a<-ggplot(D7_sim[D7_sim$ID<=8,],aes(x=partial.cor,y=Beta,ymin=lower,ymax=upper, group=factor(p.turnover), fill=factor(p.turnover), colour=factor(p.turnover)))
 b<-a+geom_line(size=0.5)+geom_ribbon(colour=NA, alpha=0.5)+facet_wrap(~title, scales="free_y", nrow=3, ncol=3)+scale_x_continuous(limits=c(-1,1), breaks=(-2:2*5)/10)
@@ -849,8 +816,7 @@ f<-e+ylab (expression(beta))+xlab ("partial correlation")+labs(fill="Species tur
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 #h<-g+geom_vline(xintercept=1, linetype=2)
 j<-g+ggtitle("b)")+theme(plot.title=element_text(hjust=0))+theme(strip.text=element_text(size=8))
-ggsave("D7/D7_unst.png",height=8/2,width=6,dpi=500, pointsize=10)
-
+j
 
 ################################ P5) Relative sensitivity to evenness differences and species turnover components of beta ######################################
 
@@ -861,7 +827,6 @@ ggsave("D7/D7_unst.png",height=8/2,width=6,dpi=500, pointsize=10)
 x<-acast(D8_sim, sp_turnover ~ Even_diff ~ ID, value.var="Beta")
 P5_score<-sapply(1:25, function(i) x[1,length(even),i]/x[6,1,i])
 names(P5_score)<-names(sort(metrics))
-save(P5_score, file="P5/P5_score.rData")
 
 for (i in 1:length(P5_score)){
   D8_sim[D8_sim$Metric==names(P5_score)[i],"P5_score"]<-paste("P5 =", round(P5_score[i],4))
@@ -877,8 +842,7 @@ f<-e+ylab (expression(beta))+xlab ("Difference in Shannon's Evenness")+theme(leg
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=0, linetype=2)
 j<-h+ggtitle("a)")+theme(plot.title=element_text(hjust=0))
-ggsave("D8/D8_st.png", height=8, width=6, dpi=500, pointsize=10)
-
+j
 
 a<-ggplot(D8_sim[D8_sim$ID<=8,],aes(x=Even_diff,y=Beta, ymin=lower, ymax=upper, group=factor(sp_turnover), colour=factor(sp_turnover), fill=factor(sp_turnover))) 
 b<-a+geom_line(size=0.5)+geom_ribbon(colour=NA,alpha=0.5)+facet_wrap(~title, scales="free_y", nrow=3, ncol=3)+scale_x_continuous(limits=c(0, 1), breaks=(0:5*2)/10)
@@ -889,8 +853,7 @@ f<-e+ylab (expression(beta))+xlab ("Difference in Shannon's Evenness")+theme(leg
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=0, linetype=2)
 j<-h+ggtitle("a)")+theme(plot.title=element_text(hjust=0))+theme(strip.text=element_text(size=8))
-ggsave("D8/D8_unst.png", height=8/2, width=6, dpi=500, pointsize=10)
-
+j
 
 ####################################################################################################################################################################################################
 
@@ -926,14 +889,12 @@ for (i in 1:25){
 
 P6_score<-sapply(1:25, function(i) with(P6_sim[P6_sim$ID==i,], mean(abs((Beta_Test1-Beta)/(max(Beta_Test1)-min(Beta_Test1))))))
 names(P6_score)<-names(sort(metrics))
-save(P6_score, file="P6/P6_score.rdata")
 
 # add the scores into the data.frame P6_sim
 for (i in 1:length(P6_score)){
   P6_sim[P6_sim$Metric==names(P6_score)[i],"P6_score"]<-paste(names(P6_score)[i], "\nP6 =", round(P6_score[i],4))
 }
 P6_sim$P6_score<-factor(P6_sim$P6_score, levels=sapply(1:length(sort(P6_score)), function(i) paste(names(sort(P6_score))[i], "\nP6 =", round(sort(P6_score)[i],4))))
-save(P6_sim, file="P6/P6_sim.rData")
 
 # plot the decreased sensitivty to turnover in rare species under a positive ONR
 
@@ -947,7 +908,7 @@ f<-e+ylab (expression(beta))+xlab ('Proportion species turnover')
 g<-f+geom_line(aes(p.turnover, Beta_Test1), linetype=2)+geom_ribbon(aes(ymin=lower_Test1, ymax=upper_Test1), colour=NA, alpha=0.3)
 h<-g+theme(legend.position="none")
 j<-h+ggtitle("a)")+theme(plot.title=element_text(hjust=0))
-ggsave("P6/P6_st.png", height=8, width=6, dpi=500, pointsize=10)
+j
 
 # unstandardised
 a<-ggplot(data=P6_sim[P6_sim$ID<=8,],aes(x=p.turnover,y=Beta, ymin=lower, ymax=upper))
@@ -959,7 +920,7 @@ f<-e+ylab (expression(italic(beta)))+xlab ('Proportion species turnover')
 g<-f+geom_line(aes(p.turnover, Beta_Test1), linetype=2)+geom_ribbon(aes(ymin=lower_Test1, ymax=upper_Test1), colour=NA, alpha=0.3)
 h<-g+theme(legend.position="none")
 j<-h+ggtitle("b)")+theme(plot.title=element_text(hjust=0))+theme(strip.text=element_text(size=8))
-ggsave("P6/P6_unst.png", height=8/2, width=6, dpi=500, pointsize=10)
+j
 ###############################################################################################################################################################################################################
 
 ############################################## !P7) Sensitivity to species loss (nestedness) ################################
@@ -972,7 +933,6 @@ ggsave("P6/P6_unst.png", height=8/2, width=6, dpi=500, pointsize=10)
 x<-acast(D6_sim, sp_turnover ~ sp_loss ~ ID, value.var="Beta")
 P7_score<-sapply(1:25, function(i) mean(abs(x[,,i]-x[,1,i])/(max(x[,,i])-min(x[,,i]))))
 names(P7_score)<-names(sort(metrics))
-save(P7_score, file="P7/P7_score.rData")
 
 # add the scores into the data.frame D6_sim
 for (i in 1:length(P7_score)){
@@ -991,8 +951,7 @@ f<-e+ylab (expression(beta))+xlab ("Species loss")+theme(legend.position="none")
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=0, linetype=2)
 j<-h+ggtitle("a)")+theme(plot.title=element_text(hjust=0))
-ggsave("P7/st_nested.png", height=8, width=6, dpi=500, pointsize=10)
-
+j
 #unstandardised metrics
 #x11()
 a<-ggplot(D6_sim[D6_sim$ID<=8 & D6_sim$sp_turnover %in% c(0:5*2/10),],aes(x=sp_loss,y=Beta, group=factor(sp_turnover), fill=factor(sp_turnover), colour=factor(sp_turnover), ymin=lower, ymax=upper))
@@ -1004,8 +963,7 @@ f<-e+ylab (expression(beta))+xlab ('Species loss')+labs(colour="Species turnover
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=0, linetype=2)
 j<-h+ggtitle("b)")+theme(plot.title=element_text(hjust=0))+theme(strip.text=element_text(size=8))
-ggsave("P7/unst_nested.png", height=8/2, width=6, dpi=500, pointsize=10)
-
+j
 ############################# !P8)  Sensitivity to species turnover ################################################################################################################################
 
 # use the simulations in D6_sim
@@ -1016,14 +974,13 @@ ggsave("P7/unst_nested.png", height=8/2, width=6, dpi=500, pointsize=10)
 x<-acast(D6_sim, sp_turnover ~ sp_loss ~ ID, value.var="Beta")
 P8_score<-sapply(1:25, function(i) mean(abs(x[,,i]-x[1,,i])/(max(x[,,i])-min(x[,,i]))))
 names(P8_score)<-names(sort(metrics))
-save(P8_score, file="P8/P8_score.rData")
 
 # add the scores into the data frame
 for (i in 1:length(P8_score)){
   D6_sim[D6_sim$Metric==names(P8_score)[i],"P8_score"]<-paste(names(P8_score)[i], "\nP8 score =", round(P8_score[i],4))
 }
 D6_sim$P8_score<-factor(D6_sim$P8_score, levels=sapply(1:length(sort(P8_score)), function(i) paste(names(sort(P8_score))[i], "\nP8 score =", round(sort(P8_score)[i],4))))
-save(D6_sim, file="D6/D6_sim.rData")
+
 
 nest<-c(0, 10, 30, 50, 70, 90)
 SpTurn<-D6_sim[D6_sim$sp_loss %in% nest,]
@@ -1037,8 +994,7 @@ f<-e+ylab (expression(beta))+xlab ('Species turnover')+theme(legend.position="no
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=0, linetype=2)
 j<-h+ggtitle("a)")+theme(plot.title=element_text(hjust=0))
-ggsave("P8/P8_st.png", height=8, width=6, dpi=500, pointsize=10)
-
+j
 # unstandardised
 a<-ggplot(SpTurn[SpTurn$ID<=8,],aes(x=sp_turnover,y=Beta, group=factor(sp_loss), fill=factor(sp_loss), colour=factor(sp_loss), ymin=lower, ymax=upper))
 b<-a+geom_line(size=0.5)+geom_ribbon(colour=NA,alpha=0.5)+facet_wrap(~P8_score,scales="free_y", nrow=3, ncol=3)+scale_x_continuous(limits=c(0,1), breaks=((0:5*2)/10))
@@ -1049,8 +1005,7 @@ f<-e+ylab (expression(beta))+xlab ('Species turnover')+labs(colour="Species loss
 g<-f+scale_colour_brewer(palette="Set1")+scale_fill_brewer(palette="Set1")
 h<-g+geom_vline(xintercept=0, linetype=2)
 j<-h+ggtitle("b)")+theme(plot.title=element_text(hjust=0))+theme(strip.text=element_text(size=8))
-ggsave("P8/P8_unst.png", height=8/2, width=6, dpi=500, pointsize=10)
-
+j
 
 
 ## !P9: an extra simulation to help visualise how  metrics use abundance information.
@@ -1070,7 +1025,6 @@ Z$Beta_rel_abd<-round(Z$Beta/Z$Rel_abd, 3)
 Z$Metric<-reorder(Z$Metric,Z$ID)
 
 P9_sim<-Z
-save(P9_sim, file="P9/P9_sim.rData")
 
 
 # plot the response to a single species turned over 
@@ -1082,8 +1036,7 @@ e<-d+theme(axis.title.x = element_text(size = 12, colour = 'black'))+theme(axis.
 f<-e+ylab (expression(italic(beta)))+xlab("Relative abundance of single species turned over")
 h<-f+theme(legend.position="none")
 j<-h+ggtitle("a)")+theme(plot.title=element_text(hjust=0))
-ggsave("P9/P9_st.png",height=8,width=6,dpi=500, pointsize=8)
-
+j
 
 a<-ggplot(P9_sim[P9_sim$ID<=8,],aes(x=Rel_abd,y=Beta)) 
 b<-a+geom_line(size=0.5)+facet_wrap(~Metric, scales="free", nrow=3, ncol=3)
@@ -1093,54 +1046,51 @@ e<-d+theme(axis.title.x = element_text(size = 12, colour = 'black'))+theme(axis.
 f<-e+ylab (expression(italic(beta)))+xlab("Relative abundance of single species turned over")
 h<-f+theme(legend.position="none")
 j<-h+ggtitle("b)")+theme(plot.title=element_text(hjust=0))+theme(strip.text=element_text(size=8))
-ggsave("P9/P9_unst.png",height=8/2,width=6,dpi=500, pointsize=8)
+j
+
 ##################################################################################################################################################################################################################################################
 
-##### Results figures and tables.
+##### Results figures and tables
 
 # Table 3
 D<-data.frame(D1=D1_score, D2=D2_score, D3=D3_score, D4=D4_score, D5=D5_score, D6=D6_score, D7=D7_score, D8=D8_score, D9=D9_score, D10=D10_score, D11=D11_score, check.rows=TRUE, stringsAsFactors=F)
 D[,1:5]<-round(D[,1:5], 4)
-save(D, file="D.rData")
-write.csv(D, "D.csv")
+
 # Table 4
 P<-data.frame(P1=P1_score, P2=P2_score, P3=P3_score, P4=P4_score, P5=P5_score, P6=P6_score)#, P7=P7_score, P8=P8_score)
 P<-round(P,4)
-save(P, file="P.rData")
-write.csv(P, "P.csv")
+
 # Fig. 1
 DP<-cbind(D[,1:4], P)
 pca1<-prcomp(DP, scale=T)
 summary(pca1)
 plot(pca1)
-biplot(pca1, tck=0.02, las=1, cex=0.6)
 
-pdf("Fig1.pdf", height=10, width=6, pointsize=8)  
-par(xpd=NA)
-biplot(pca1, las=1, tck=0.02, cex=0.8,  col=c("black", "dark grey"), asp=1.8, cex.axis=0.9)
-dev.off()
-
-tiff("Fig1a.tif", height=10, width=6, pointsize=8, res=500, units="in")  
+# pca axes 1 and 2
 par(xpd=NA)
 biplot(pca1, las=1, tck=0.02, cex=0.8,  col=c("black", "dark grey"), asp=1.8, cex.axis=0.9)
 mtext(outer=T, "a)", line=-6, side=3, adj=0.1)
-dev.off()
 
-tiff("Fig1b.tif", height=10, width=6, pointsize=8, res=500, units="in")  
+# pca axis 2 and 3
 par(xpd=NA)
 biplot(pca1, choices=2:3, las=1, tck=0.02, cex=0.8,  col=c("black", "dark grey"), asp=1.8, cex.axis=0.9)
 mtext(outer=T, "b)", line=-6, side=3, adj=0.1)
-dev.off()
+
 
 
 
 ############################################################################################################################################################################################################################################################
-# Pareto-dominated
+# Are any of the metrics outperformed by at least one other metric on all desirable properties?
+# These are Pareto-dominated
 
+# convert all to numeric variables so they can be ranked
+# TRUE gets 1, FALSE gets 2
+# NAs on test 5 get 2 (FAIL)
 pareto<-D
 pareto$D5[is.na(pareto$D5)]<-'FALSE'
 pareto[pareto=='FALSE']<-2
 pareto[pareto=='TRUE']<-1
+
 for (i in 5:11){
   pareto[,i]<-as.numeric(pareto[,i])
 }
@@ -1153,6 +1103,8 @@ for (i in 1:ncol(pareto)){
 
 # Create a matrix with a row and a column for each metric 
 # the numbers are the number of tests in which a metric is beaten by each other metric
+# If the value is eleven, that metric is beaten on all eleven desirable properties by another metric: pareto-dominated
+
 Pdom<-matrix(nrow=25, ncol=25)
 rownames(Pdom)<-rownames(D)
 colnames(Pdom)<-rownames(D)
@@ -1164,7 +1116,6 @@ for (i in 1:nrow(pareto)){
 }
 
 
-# If the value is eleven, that metric is beaten on all eleven desirable properties by another metric: pareto-dominated
 
 pd<-sapply(1:nrow(Pdom), function(i) length(which(Pdom[i,]==11))) # fifteen metrics are pareto dominated
 names(pd)<-rownames(Pdom)
