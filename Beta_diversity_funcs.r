@@ -179,9 +179,8 @@ random_composition_change <- function(Comm1, p){
 
 # as random_composition_change function above, but simulating both turnover and species richness differences simultaneously 
 # species richness differences are also called nestedness (all species present in the species poor assemblage are a subset of those in the species rich assemblage)
-# used to evaluate 
-# personality property P1: linearity of response to species turnover 
-# personlity property P3: the relative sensitivity to species turnover and species richness differences
+# personality property P1: broad-sense or narrow sense?  
+# personality property P3: the relative sensitivity to species turnover and species richness differences
 
 # functions to generate assemblages with both nestedness and turnover
 nested<-function(S, p, Comm1){ # Comm2 is nested in Comm1
@@ -192,7 +191,7 @@ nested<-function(S, p, Comm1){ # Comm2 is nested in Comm1
   # scale the abundances back up to 10000 (same as reference assemblage, Comm1): this avoids confounding effect of nestedness with sample size
   comm2b<-round((Comm2a/sum(Comm2a))*sum(Comm1))
   x<-sum(Comm1)-sum(comm2b)
-  comm2b[which(comm2b>0)[1]]<-comm2b[which(comm2b>0)[1]]+x 
+  comm2b[which(comm2b>0)[1]]<-comm2b[which(comm2b>0)[1]]+x # add any missing individuals to the most abundance species 
   # now introduce some turnover, too
   to.turnover<-sample(which(comm2b>0), size=round(p*length(which(comm2b>0)), 0))
   comm2b<-c(comm2b, comm2b[to.turnover])
@@ -253,6 +252,22 @@ evenness<-function(Comm1, even, turnover){ # Comm1 is the Fisher log series asse
 
 ########################################################################################################################################
 
+# function to generate species replication(Legendre and de Caceres 2013 - P7)
+ 
+
+Srep_inv<-function(Comm, sploss, turnover){
+  reps <- vector("list", 10)
+  z <- nestedness(Comms=Comm, sploss, turnover, rev=FALSE)
+  reps[[1]]<-z
+  x<-z
+  for (i in 1:9){
+    x<-cbind(x,z)
+    reps[[i+1]]<-x
+  }
+  return(reps)
+}
+
+
 ################################################################################################################################
 
 
@@ -276,6 +291,26 @@ Diff_alpha<-function(Alpha1, Alpha2, turnover){
 }
 ###############################################################################################################################
 
+# function to generate nestedness (species loss and different levels of turnover)
+# We use this to test whether metrics are broad sense (sensitive to species turnover and differences in alpha-diversity) or narrow sense (only sensitive to species turnover)
+ 
+nestedness<-function(Comms, sploss, turnover, rev){
+  Comm2<-Comms
+  to_lose<-sample(1:length(Comms), sploss)
+  Comm2[to_lose]<-0 # Comm2 is a nested subset of the species in Comm1
+  # but this time we do not scale the abundances back up.  Both the species and their abundances are nested
+  replace<-sample(which(Comms>0 & Comm2>0), turnover*length(which(Comm1>0 & Comm2>0))) # Of the shared species, a proportion, turnover, are replaced by species of a different identity in Comm2 
+  Comm2[replace]<-0
+  Com2<-c(Comm2, Comm1[replace])
+  Com1<-c(Comms, rep(0, length(replace)))
+  if(rev==TRUE){
+    return(rbind(Com2, Com1))
+  }
+  else 
+    return(rbind(Com1, Com2))
+}
+
+########################################################################################################################################
 # a function to generate turnover, while assuming a positive occupancy-abundance relationship (ONR)
 # a positive ONR is a near-ubiquitous macroecological pattern
 # it reflects that species with low abundance are also typically range-limited
@@ -355,7 +390,16 @@ new_metrics<-function(Comms){
 	JostSimp<-JostSimpson(Comms)
 	LandeShan<-LandeShannon(Comms)
 	LandeSimp<-LandeSimpson(Comms)
-	return(c(Hor, Renk, AvEuc, ClassicJac, ClassicSor, sim, ChaoSor, ChaoJac, NESS50, JostShan, JostSimp, LandeShan, LandeSimp))
+	Part <- part(Comms)
+  BaselgaBC_turn<-Part$BaselgaBC_turn 
+  BaselgaBC_nest<-Part$BaselgaBC_nest
+  BaselgaR_turn<-Part$BaselgaR_turn
+  BaselgaR_nest<-Part$BaselgaR_nest
+  PodaniBC_turn<-Part$PodaniBC_turn
+  PodaniBC_nest<-Part$PodaniBC_nest
+  PodaniR_turn<-Part$PodaniR_turn
+  PodaniR_nest<-Part$PodaniR_nest
+	return(c(Hor, Renk, AvEuc, ClassicJac, ClassicSor, sim, ChaoSor, ChaoJac, NESS50, JostShan, JostSimp, LandeShan, LandeSimp, BaselgaBC_turn, BaselgaBC_nest, BaselgaR_turn, BaselgaR_nest, PodaniBC_turn, PodaniBC_nest, PodaniR_turn, PodaniR_nest))
 } # returns a vector with the value of beta for each of the new indices	
 
 ##############################################################################################################################
@@ -365,12 +409,12 @@ beta_metrics_all <- function(comms){
 	#takes a pair of community abundance vectors and calculates multiple beta diversity indices
 	method <- list('jaccard','canberra','bray','gower','kulczynski','morisita','horn','euclidean','manhattan','altGower','binomial', 'cao')
 	y<-sapply(method, function(x) vegdist(comms, method=x), USE.NAMES=T)
-	names(y) <- c('Jaccard abd.','Canberra','Bray-Curtis','Gower','Kulczynski','Morisita','Morisita-Horn','Euclidean','Manhattan','alt. Gower','Binomial', 'CYd')
+	names(y) <- c('Ruzicka','Canberra','Bray-Curtis','Gower','Kulczynski','Morisita','Morisita-Horn','Euclidean','Manhattan','alt. Gower','Binomial', 'CYd')
 	z<-new_metrics(comms)
-	newmeth<-list("Horn", "Renkonen", "Av. Euclidean", "Classic Jaccard", "Classic Sorensen", "sim", "Chao Sorensen", "Chao Jaccard",  "NESS", "Jost Shannon", "Jost Simpson", "Lande Shannon", "Lande Simpson")
+	newmeth<-list("Horn", "Renkonen", "Av. Euclidean", "Classic Jaccard", "Classic Sorensen", "sim", "Chao Sorensen", "Chao Jaccard",  "NESS", "Jost Shannon", "Jost Simpson", "Lande Shannon", "Lande Simpson", "Baselga B-C turn", "Baselga B-C nest", "Baselga Ruzicka turn", "Baselga Ruzicka nest", "Podani B-C turn", "Podani B-C nest", "Podani Ruzicka turn", "Podani Ruzicka nest")
 	names(z)<-newmeth
 	return(c(y,z))
-	} # returns a vector containing the value of beta for all 25 metrics in the analysis
+	} # returns a vector containing the value of beta for all 33 metrics in the analysis
 ###################################################################################################################################
 
 # functions to calculate the metrics not implemented in vegdist in vegan package
@@ -416,12 +460,10 @@ NESSm50<-function(Comms){
 }
 
 
-# Partitioning methods
-
 # true beta diversity, sensu Jost et al. 2007, Hill 1973
 
 JostShannon<-function(Comms){ # 
-  return(d(Comms, lev = "beta", q = 1)-1) # q = 1 Shannon Entropy 
+  return(d(Comms, lev = "beta", q = 1, wts=c(sum(Comms[1,]), sum(Comms[2,])))-1) # q = 1 Shannon Entropy with weights to account for sample area or sampling effort 
 } 
 # the theoretical maximum is the number of communities, in this case 2.  The value will be 2 when they are completely distinct and  1 when they are identical  	
 # the minus 1 puts comparisons between 2 communities on a scale of 0-1 rather than 1-2
@@ -430,17 +472,19 @@ JostSimpson<-function(Comms){
   return(d(Comms, lev = "beta", q = 2)-1) # q = 2 Simpson index 
 }	
 
-# additive partitioning sensu Lande 1996
+# additive partitioning sensu Lande 1996, using the formulae in Magurran and McGill (2011) pp 69-70
+
+adipart(y=reps[[1]], index="shannon")
 
 LandeShannon<-function(Comms){
-  alph<-mean(c(diversity(Comms[1,], index="shannon"), diversity(Comms[2,], index="shannon")))
-  return(diversity(colSums(Comms), index="shannon")-alph)
+  return(adipart(y=Comms, index="shannon"))
 }
 
+
 LandeSimpson<-function(Comms){
-  alph<-mean(c(diversity(Comms[1,], index="simpson"), diversity(Comms[2,], index="simpson")))
-  return(diversity(colSums(Comms), index="simpson")-alph)
+  return(adipart(y=Comms, index="simpson"))
 }
+
 
 # chao jaccard and chao Sorensen
 # These metrics are designed to use abundance data to estimate the number of unseen shared species
@@ -485,6 +529,40 @@ chaojs<-function(Comms, method){
     }
   }
 }
+
+# function to return abundance-based metrics that are designed to partition the Bray-Curtis and Ruzicka metrics into 
+# a) balanced variation in abundance (variation due to replacement of individuals by individuals of another species:the abundance equivalent of turnover)
+# b) abundance gradients (variation due to the loss of individuals from one site: the abundance equivalent of nestedness)
+# BC is an abundance-based extension of Classic Sorensen
+# Ruzicka is an abundance-based extension of Classic Jaccard
+part<-function (x) { # function to return metrics designed to partition the Ruzicka and Bray-Curtis metrics into turnover and nestedness components 
+  A<-sum(pmin(x[1,],x[2,]))
+  B<-sum(x[1,])-sum(pmin(x[1,],x[2,]))
+  C<-sum(x[2,])-sum(pmin(x[1,],x[2,]))
+  
+  BaselgaBC_turn <- min(B, C)/(A+min(B,C)) #(Baselga 2013)
+  BaselgaBC_nest <- (abs(B-C)/(2*A+(B+C)))*(A/(A+min(B,C))) #(Baselga 2013)
+  BaselgaR_turn <- (2*min(B, C))/(A+2*min(B,C)) # (Legendre 2014)
+  BaselgaR_nest <- (abs(B-C)/(A+B+C))*(A/(A+2*min(B,C))) # (Legendre 2014)
+  
+  PodaniBC_turn <- (2*min(B,C))/(2*A+(B+C)) # (Legendre 2014)
+  PodaniBC_nest <- abs(B-C)/(2*A+B+C) # (Legendre 2014)
+  PodaniR_turn <- 2*min(B,C)/(A+B+C) # (Podani et al. 2013)
+  PodaniR_nest <- abs(B-C)/(A+B+C) # (Podani et al. 2013)
+  
+  
+  results<-list(BaselgaBC_turn=BaselgaBC_turn, 
+                BaselgaBC_nest=BaselgaBC_nest,
+                BaselgaR_turn=BaselgaR_turn,
+                BaselgaR_nest=BaselgaR_nest,
+                PodaniBC_turn=PodaniBC_turn,
+                PodaniBC_nest=PodaniBC_nest,
+                PodaniR_turn=PodaniR_turn,
+                PodaniR_nest=PodaniR_nest)
+  return(results)
+}
+ 
+
 
 ##########################################################################################################
 
