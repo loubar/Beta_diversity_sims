@@ -474,7 +474,6 @@ JostSimpson<-function(Comms){
 
 # additive partitioning sensu Lande 1996, using the formulae in Magurran and McGill (2011) pp 69-70
 
-adipart(y=reps[[1]], index="shannon")
 
 LandeShannon<-function(Comms){
   return(adipart(y=Comms, index="shannon"))

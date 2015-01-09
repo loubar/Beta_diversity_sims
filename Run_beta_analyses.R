@@ -67,10 +67,10 @@ for (i in c(1:2)){
 
 # source the functions in the file beta_diversity_funcs.r on github (https://github.com/loubar/Beta_diversity_sims/blob/master/Beta_diversity_funcs.r)
 # these are functions to calculate the beta-diversity metrics and to simulate assemblage pairs under different scenarios
-#u <- "https://raw.githubusercontent.com/loubar/Beta_diversity_sims/master/Beta_diversity_funcs.r"
-#script <- getURL(u, ssl.verifypeer = FALSE)
-#eval(parse(text = script))
-source("Beta_diversity_funcs.r")
+u <- "https://raw.githubusercontent.com/loubar/Beta_diversity_sims/master/Beta_diversity_funcs.r"
+script <- getURL(u, ssl.verifypeer = FALSE)
+eval(parse(text = script))
+#source("Beta_diversity_funcs.r")
 
 # give each metric an index
 # 1:8 have no upper limit and will need to be plotted separately
